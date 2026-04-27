@@ -4,3 +4,5 @@ project(PC_Lab5)
 set(CMAKE_CXX_STANDARD 20)
 
 add_executable(PC_Lab5 main.cpp)
+
+target_link_libraries(PC_Lab5 ws2_32)
