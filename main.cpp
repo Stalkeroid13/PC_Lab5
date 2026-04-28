@@ -8,22 +8,9 @@
 #include <sstream>
 
 #define PORT 8080
-#define HTML_CONTENT "<html><head><title>Simple Web Server</title></head><body><h1>Welcome to the Simple Web Server!</h1><p>This is a simple HTML page served by a C++ program.</p></body></html>"
 
 using namespace std;
 
-
-// Функція для зчитування всього вмісту файлу в рядок
-string getFileContent(const string &fileName)
-{
-    ifstream file(fileName, ios::binary);
-    if (!file.is_open())
-    {
-        return ""; // Повертаємо пустий рядок, якщо файлу немає
-    }
-    // Ефективний спосіб зчитати весь файл через ітератори
-    return string(istreambuf_iterator(file), istreambuf_iterator<char>());
-}
 
 void sendResponse(SOCKET clientSocket, const string &response)
 {
@@ -48,34 +35,30 @@ void handleRequest(SOCKET clientSocket)
     // Розбиваємо перший рядок: "GET /index.html HTTP/1.1"
     if (sscanf(buffer, "%s %s %s", method, path, protocol) >= 2)
     {
-        auto requestedPath = string(path);
-
+        auto reqPath = string(path);
         // Обробка кореневого запиту
-        if (requestedPath == "/")
-            requestedPath = "/index.html";
+        if (reqPath == "/")
+            reqPath = "/index.html";
 
         // Перетворюємо мережевий шлях у локальне ім'я файлу
-        string fileName = requestedPath.substr(1);
+        string fileName = reqPath.substr(1);
+        ifstream file(fileName, ios::binary);
 
-        // Пробуємо отримати контент
-        string content = getFileContent(fileName);
-        string httpResponse;
-
+        string response;
         // Файл не знайдено - віддаємо 404
-        if (content.empty())
+        if (!file.is_open())
         {
-            httpResponse = "HTTP/1.1 404 Not Found\r\n" "Content-Length: 0\r\n" "Connection: close\r\n\r\n";
-            cout << "404 Not Found: " << fileName << endl;
+            response = "HTTP/1.1 404 Not Found\r\n" "Content-Length: 0\r\n" "Connection: close\r\n\r\n";
         }
         else
         {
             // Файл знайдено — формуємо успішну відповідь
-            httpResponse = "HTTP/1.1 200 OK\r\n" "Content-Type: text/html\r\n" "Content-Length: "
-                           + to_string(content.size()) + "\r\n" "Connection: close\r\n\r\n" + content;
-            cout << "200 OK: served " << fileName << endl;
+            string content((istreambuf_iterator(file)), istreambuf_iterator<char>());
+            response = "HTTP/1.1 200 OK\r\n" "Content-Type: text/html\r\n" "Content-Length: "
+                       + to_string(content.size()) + "\r\n" "Connection: close\r\n\r\n" + content;
         }
-
-        send(clientSocket, httpResponse.c_str(), httpResponse.size(), 0);
+        // Відправляємо все одним махом
+        send(clientSocket, response.c_str(), static_cast<int>(response.size()), 0);
     }
 
     closesocket(clientSocket);
